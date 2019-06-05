@@ -37,6 +37,8 @@ public OFPacketOut generateLLDPMessage(IOFSwitch iofSwitch, OFPort port,
 	}
 	//Sua lai ham generate ra goi LLDP
 	...
+public OFPacketOut generateLLDPMessage(IOFSwitch iofSwitch, OFPort port, 
+			boolean isStandard, boolean isReverse) {
 	Ethernet ethernet;
 		if (isStandard) {
 			ethernet = new Ethernet().setSourceMACAddress(ofpPort.getHwAddr())
