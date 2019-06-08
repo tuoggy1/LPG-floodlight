@@ -312,7 +312,7 @@ IFloodlightModule, IInfoProvider {
 		.setBufferId(OFBufferId.NO_BUFFER)
 		.setMatch( mb.build() )
 		.setActions( al )
-		.setPriority(FLOWMOD_DEFAULT_PRIORITY);
+		.setPriority(1000);
 		
 		// finally write it out to switch
 		sw.write( fmb.build() );
@@ -320,7 +320,37 @@ IFloodlightModule, IInfoProvider {
 		//sw.flush();
 		
 	}
-	
+	public void writeBlock( IOFSwitch sw )
+	{
+		// generate a Match Filter
+		Match.Builder mb = sw.getOFFactory().buildMatch();
+		mb.setExact( MatchField.ETH_TYPE, EthType.LLDP);
+		
+		// generate an action list
+		List<OFAction> al = new ArrayList<OFAction>();
+
+		// generate a port and table id instance
+		OFAction action = sw.getOFFactory().actions().buildOutput().
+							 setPort(OFPort.LOCAL).setMaxLen(Integer.MAX_VALUE).build();
+		al.add( action );
+		
+		// generate and start to build an OFFlowMod Message
+		OFFlowMod.Builder fmb = sw.getOFFactory().buildFlowAdd();
+		//fmb.setCookie( cookie )
+		fmb
+		.setHardTimeout(0)
+		.setIdleTimeout(0)
+		.setBufferId(OFBufferId.NO_BUFFER)
+		.setMatch( mb.build() )
+		.setActions( al )
+		.setPriority(500);
+		
+		// finally write it out to switch
+		sw.write( fmb.build() );
+		log.info("Block default LLDP rule added to switch {}",sw.getId().toString());
+		//sw.flush();
+		
+	}
 	//Random mac function
 	public static byte[] randomMac() {
 		Random rand = new Random();
@@ -1421,6 +1451,7 @@ IFloodlightModule, IInfoProvider {
 			IOFSwitch iofSwitch = switchService.getSwitch(sw);
 			if (iofSwitch == null) continue;
 			if (!iofSwitch.isActive()) continue; /* can't do anything if the switch is SLAVE */
+			this.writeBlock(iofSwitch);
 			this.writeFlowMod(iofSwitch, rmac);
 			Collection<OFPort> c = iofSwitch.getEnabledPortNumbers();
 			if (c != null) {
