@@ -2,11 +2,9 @@ public static class FlowModSample implements IOFSwitchListener, IFloodlightModul
 	{
 		protected FloodlightModuleContext context;
 		protected IOFSwitchService switchService;
-		protected U64 cookie;
 		public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 5; 	// infinite
 		public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 5; 	// infinite
 		public static int FLOWMOD_DEFAULT_PRIORITY = 1;
-		public static int FLOWMOD_SAMPLE_APP_ID = 1024;		// APP_ID
 		protected static Logger logger = LoggerFactory.getLogger( FlowModSample.class );
 		
 		@Override
@@ -68,7 +66,7 @@ public static class FlowModSample implements IOFSwitchListener, IFloodlightModul
 			
 			// generate and start to build an OFFlowMod Message
 			OFFlowMod.Builder fmb = sw.getOFFactory().buildFlowAdd();
-			fmb.setCookie( cookie )		
+			fmb	
 			.setHardTimeout(FLOWMOD_DEFAULT_HARD_TIMEOUT)
 			.setIdleTimeout(FLOWMOD_DEFAULT_IDLE_TIMEOUT)
 			.setBufferId(OFBufferId.NO_BUFFER)
@@ -122,3 +120,11 @@ public static class FlowModSample implements IOFSwitchListener, IFloodlightModul
 			
 		}
 	}
+protected void discoverOnAllPorts() {	
+		....................						
+		for (DatapathId sw : switchService.getAllSwitchDpids()) {
+			IOFSwitch iofSwitch = switchService.getSwitch(sw);
+			if (iofSwitch == null) continue;
+			if (!iofSwitch.isActive()) continue; /* can't do anything if the switch is SLAVE */
+			this.writeFlowMod(iofSwitch, rmac);
+			Collection<OFPort> c = iofSwitch.getEnabledPortNumbers();
