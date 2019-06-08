@@ -1,54 +1,10 @@
-public static class FlowModSample implements IOFSwitchListener, IFloodlightModule
-	{
-		protected FloodlightModuleContext context;
-		protected IOFSwitchService switchService;
+Class LinkDiscoveryManager ....
+{
 		public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 5; 	// infinite
 		public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 5; 	// infinite
-		public static int FLOWMOD_DEFAULT_PRIORITY = 1;
-		protected static Logger logger = LoggerFactory.getLogger( FlowModSample.class );
+		public static int FLOWMOD_DEFAULT_PRIORITY = 1
 		
-		@Override
-		public Collection< Class< ? extends IFloodlightService >> getModuleServices()
-		{
-			return null;
-		}
-
-		@Override
-		public Map< Class< ? extends IFloodlightService >, IFloodlightService > getServiceImpls()
-		{
-			return null;
-		}
-
-		@Override
-		public Collection< Class< ? extends IFloodlightService >> getModuleDependencies()
-		{
-			Collection< Class< ? extends IFloodlightService >> l = 
-					new ArrayList< Class< ? extends IFloodlightService >>();
-			l.add( IFloodlightProviderService.class );
-			l.add( IOFSwitchService.class );
-			return l;
-		}
-
-		@Override
-		public void init( FloodlightModuleContext context )
-				throws FloodlightModuleException
-		{
-			switchService = context.getServiceImpl( IOFSwitchService.class );
-			
-			AppCookie.registerApp(FLOWMOD_SAMPLE_APP_ID, "FlowModSample" );
-			cookie = AppCookie.makeCookie( FLOWMOD_SAMPLE_APP_ID, 2 );
-			
-			logger.debug( "FlowRulesHub has been initialized!" );
-		}
-
-		@Override
-		public void startUp( FloodlightModuleContext context )
-				throws FloodlightModuleException
-		{
-			switchService.addOFSwitchListener( this );
-		}
-
-		private void writeFlowMod( IOFSwitch sw, MacAddress mac )
+		public void writeFlowMod( IOFSwitch sw, MacAddress mac )
 		{
 			// generate a Match Filter
 			Match.Builder mb = sw.getOFFactory().buildMatch();
@@ -80,46 +36,7 @@ public static class FlowModSample implements IOFSwitchListener, IFloodlightModul
 			
 			logger.debug("Sending 1 new entry to {}", sw.getId().toString() );
 		}
-		
-		@Override
-		public void switchRemoved( DatapathId switchId )
-		{
-			
-		}
-
-		@Override
-		public void switchActivated( DatapathId switchId )
-		{
-			
-		}
-
-		@Override
-		public void switchPortChanged(
-										DatapathId switchId,
-										OFPortDesc port,
-										PortChangeType type )
-		{
-
-		}
-
-		@Override
-		public void switchChanged( DatapathId switchId )
-		{
-			
-		}
-
-		@Override
-		public void switchDeactivated(DatapathId switchId) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		@Override
-		public void switchAdded(DatapathId switchId) {
-			// TODO Auto-generated method stub
-			
-		}
-	}
+}
 protected void discoverOnAllPorts() {	
 		....................						
 		for (DatapathId sw : switchService.getAllSwitchDpids()) {
