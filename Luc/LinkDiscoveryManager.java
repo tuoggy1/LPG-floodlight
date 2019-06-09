@@ -325,7 +325,7 @@ IFloodlightModule, IInfoProvider {
 		
 		// finally write it out to switch
 		sw.write( fmb.build() );
-		log.info("1 flow added to switch {}",sw.getId().toString());
+		log.trace("1 flow added to switch {}",sw.getId().toString());
 		//sw.flush();
 		
 	}
@@ -356,7 +356,7 @@ IFloodlightModule, IInfoProvider {
 		
 		// finally write it out to switch
 		sw.write( fmb.build() );
-		log.info("Block default LLDP rule added to switch {}",sw.getId().toString());
+		log.trace("Block unknown LLDP packets on switch {}",sw.getId().toString());
 		//sw.flush();
 		
 	}
@@ -1163,7 +1163,8 @@ IFloodlightModule, IInfoProvider {
 		if (lldpClock == 0) {
 			if (log.isTraceEnabled())
 				log.trace("Sending LLDP out on all ports.");
-			discoverOnAllPorts();
+			//discoverOnAllPorts();
+			discoverOnFilterPorts();
 		}
 	}
 
@@ -1480,6 +1481,44 @@ IFloodlightModule, IInfoProvider {
 		}
 	}
 
+	//Ham discover tren filter port
+	protected void discoverOnFilterPorts() {
+		MacAddress rmac = MacAddress.of(LinkDiscoveryManager.randomMac());
+		//log.info("Sending LLDP packets out of all the filter ports and random MAC {}",rmac.toString());
+		// Send standard LLDPs
+		log.info("Block all unkown LLDP packets on all available switches");
+		log.info("Allow only LLDP packets with desination MAC of {} to be fowarded back to controller",rmac);
+		for (DatapathId sw : switchService.getAllSwitchDpids()) {
+			IOFSwitch iofSwitch = switchService.getSwitch(sw);
+			if (iofSwitch == null) continue;
+			if (!iofSwitch.isActive()) continue; /* can't do anything if the switch is SLAVE */
+			this.writeBlock(iofSwitch);	
+			this.writeFlowMod(iofSwitch, rmac);
+		}
+		System.out.println("Eligible Port Table: ");
+		List<String> portTable = Controller.getValue();
+		System.out.println(portTable);
+		for (String obj : portTable) {
+			char cId = obj.charAt(0); 
+			char cPort = obj.charAt(3);	
+			String sId = String.valueOf(cId);
+			int iPort = Character.getNumericValue(cPort);
+			DatapathId t = DatapathId.of(sId);
+			OFPort ofp = OFPort.of(iPort);
+			if (isLinkDiscoverySuppressed(t, ofp)) {			
+				continue;
+			}
+			log.trace("Enabled port: {}", ofp);
+			log.info("Sending LLDP packet to {} on eligible port {}",t,ofp);
+			sendDiscoveryMessageTilak(t, ofp, rmac, true, false);
+			NodePortTuple npt = new NodePortTuple(t, ofp);
+			addToMaintenanceQueue(npt);
+		}
+	}
+	
+	
+	
+	
 	protected UpdateOperation getUpdateOperation(OFPortState srcPortState, OFPortState dstPortState) {
 		boolean added = ((srcPortState != OFPortState.STP_BLOCK) && (dstPortState != OFPortState.STP_BLOCK));
 
@@ -2279,9 +2318,9 @@ IFloodlightModule, IInfoProvider {
 
 			@Override
 			public void run() {
-				System.out.println(java.time.LocalTime.now());
-				System.out.println(Controller.getValue());
-				System.out.println("Hahahahahaha");
+				//System.out.println(java.time.LocalTime.now());
+				
+				//System.out.println();
 			}
 	}
 	
