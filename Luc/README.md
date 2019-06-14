@@ -10,6 +10,8 @@ IFloodlightModule, IInfoProvider {
 	//EligiblePort Table
 	static List<String> listSwPort = new ArrayList<String>();
 	List<String> templist = new ArrayList<String>();
+	//Biến random Mac tại mỗi chu kì LLDP, cho phép truy cập từ các class khác
+	public static MacAddress lmac;
 ````
 * Khai báo các phương thức cần thiết
 ````java
@@ -17,6 +19,10 @@ IFloodlightModule, IInfoProvider {
 public static List<String> getValue()
 {
 	return listSwPort;
+}
+//Hàm lấy giá trị của lmac hiện tại (dùng để truy xuất giá trị random MAC tại chu kì LLDP hiện tại từ các class khác)
+public static MacAddress getCurrentMac() {
+	return lmac;
 }
 //Hàm add flow drop các gói unknown LLDP
 public void writeBlock( IOFSwitch sw )
@@ -247,6 +253,8 @@ boolean isStandard, boolean isReverse) {
 ````java
 protected void discoverOnFilterPorts() {
 		MacAddress rmac = MacAddress.of(LinkDiscoveryManager.randomMac());
+		//Lưu địa chỉ MAC vừa random vào biến lmac để các class khác có thể truy cập giá trị này
+		lmac = rmac;
 		//log.info("Sending LLDP packets out of all the filter ports and random MAC {}",rmac.toString());
 		// Send standard LLDPs
 		log.info("Block all unkown LLDP packets on all available switches");
@@ -317,7 +325,7 @@ OFPort remotePort = OFPort.of(portBB.getShort());
 					&& lldptlv.getValue()[0] == 0x0
 					....
 ````
-* Cuối cùng, sửa lại hàm discoverLink
+* Sửa lại hàm discoverLink để chỉ khám phá trên các port đã filter trong bảng EligiblePort Table
 ````java
 protected void discoverLinks() {
 
@@ -335,4 +343,28 @@ protected void discoverLinks() {
 			//tìm link chỉ gửi LLDP trên port đã filter
 		}
 	}
+````
+* Log lại thiết bị đang cố gắng tấn công LLDP bằng cách sửa hàm handleMessage trong class OFSwitchManager. Khi có gói tin LLDP từ host gửi đến switch khác địa chỉ MAC random tại chu kì LLDP hiện tại, sẽ log ra thông báo phát hiện tấn công.
+````java
+@Override
+protected void handleMessage(IOFSwitchBackend sw, OFMessage m, FloodlightContext bContext) {
+	floodlightProvider.handleMessage(sw, m, bContext);
+	Ethernet eth = null;
+	if (m.getType().toString() == "PACKET_IN") {
+		OFPacketIn pi = (OFPacketIn)m;
+		if (pi.getData().length <= 0) {
+			log.error("Ignore packet because it is empty");
+			return;
+		} else {
+			eth = new Ethernet();
+			eth.deserialize(pi.getData(), 0, pi.getData().length);
+			if (eth.getPayload() instanceof LLDP) {
+				MacAddress dstmac = eth.getDestinationMACAddress();
+				if (!dstmac.equals(LinkDiscoveryManager.getCurrentMac())) {
+					log.info("Detect LLDP attack at switch {} on device with port {}", sw.getId().toString(), pi.getMatch().toString());
+				}
+			}
+		}
+	}
+}		
 ````
