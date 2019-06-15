@@ -36,10 +36,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -56,15 +54,12 @@ import net.floodlightcontroller.core.IInfoProvider;
 import net.floodlightcontroller.core.IOFMessageListener;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.IOFSwitchListener;
-import net.floodlightcontroller.core.internal.Controller;
 import net.floodlightcontroller.core.internal.IOFSwitchService;
 import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.core.types.NodePortTuple;
-import net.floodlightcontroller.core.util.AppCookie;
-import net.floodlightcontroller.core.util.ListenerDispatcher;
 import net.floodlightcontroller.core.util.SingletonTask;
 import net.floodlightcontroller.debugcounter.IDebugCounter;
 import net.floodlightcontroller.debugcounter.IDebugCounterService;
@@ -168,11 +163,23 @@ IFloodlightModule, IInfoProvider {
 	// Role
 	protected HARole role;
 
-	//Controller
-	protected Controller c;
-	private static ScheduledFuture<?> eliPortFromController;
-	protected static ConcurrentMap<OFType, ListenerDispatcher<OFType,IOFMessageListener>> messageListeners;
-	
+	//mac
+	public static MacAddress lmac;
+	public static MacAddress getCurrentMac() {
+		return lmac;
+	}
+	//Bang luu eliPort
+	protected static HashMap<String,List<String>> eliPortTable = new HashMap();
+    static List<String> listSwPort = new ArrayList<String>();
+    List<String> templist = new ArrayList<String>();
+    //Phuong thuc lay list eli port
+	public static List<String> getValue()
+    {
+    	return listSwPort;
+    }
+	//Bảng lưu tần suất nhận LLDP từ switch (để loại bỏ các port down -> tối ưu quá trình gửi LLDP)
+	List<Integer> countList = new ArrayList<Integer>();
+	int counttemp = 0;
 	// LLDP and BDDP fields
 	private static final byte[] LLDP_STANDARD_DST_MAC_STRING =
 			MacAddress.of("01:80:c2:00:00:0e").getBytes();
@@ -339,9 +346,9 @@ IFloodlightModule, IInfoProvider {
 		List<OFAction> al = new ArrayList<OFAction>();
 
 		// generate a port and table id instance
-		OFAction action = sw.getOFFactory().actions().buildOutput().
-							 setPort(OFPort.LOCAL).setMaxLen(Integer.MAX_VALUE).build();
-		al.add( action );
+		//OFAction action = sw.getOFFactory().actions().buildOutput().
+						//	 build();
+		//al.add( action );
 		
 		// generate and start to build an OFFlowMod Message
 		OFFlowMod.Builder fmb = sw.getOFFactory().buildFlowAdd();
@@ -905,7 +912,65 @@ IFloodlightModule, IInfoProvider {
 		OFPort remotePort = OFPort.of(portBB.getShort());
 		IOFSwitch remoteSwitch = null;
 		long timestamp = 0;
-
+		
+		//code add them
+		int a = 100;
+		int b = 50;
+		LLDPTLV chId = lldp.getChassisId();
+		LLDPTLV portId = lldp.getPortId();
+		String ch = chId.toString();
+		String po = portId.toString();	    				    				
+		String ch1 = ch.replaceAll("type=1 length=7 value=400000", "");
+		String po1 = po.replaceAll("type=2 length=3 value=20", "");
+		List<String> values = new ArrayList<String>();	    				   				
+		values.add(po1);
+		eliPortTable.put(ch1,values);
+		List <String> listtemp = new ArrayList<String>();
+		Iterator<Map.Entry<String,List<String>>> iterator = eliPortTable.entrySet().iterator();
+		while (iterator.hasNext())
+		{
+			String temp = iterator.next().toString();
+            // Ham clear mang listtemp
+			if (listtemp.size() == a)
+	    	{
+	    		listtemp.clear();
+	    	}
+			listtemp.add(temp);	    					
+			for (String elements : listtemp)
+	    	{
+	    		boolean check = listSwPort.contains(elements);
+	    		if (check == false)
+	    		{
+	    			listSwPort.add(elements);
+	    			int positionnew = listSwPort.indexOf(elements);
+	    			countList.add(positionnew,b);
+	    	    		counttemp = countList.size();
+	    		}
+	    		else	
+	    		{
+	    			int position = listSwPort.indexOf(elements);
+		    		counttemp = countList.size();
+		    		for (int i=0; i<counttemp; i++)
+		    		{
+		    			int j = countList.get(i);
+		    			j=j-1;
+		    			countList.set(i,j);
+		    		}
+		    		countList.set(position,b);
+		    		// Ham xoa phan tu LLDP khong xuat hien sau 50 lan
+		    		int index = -1;
+		    		while ((index = countList.indexOf(0)) >= 0)
+		    		{
+				   		System.out.println("Deleted element: "+countList.get(index));
+				   		countList.remove(index);
+				   		listSwPort.remove(index);
+				   	}	    				
+	    		}   						
+	    	}    					
+		}
+		
+		
+		
 		// Verify this LLDP packet matches what we're looking for
 		for (LLDPTLV lldptlv : lldp.getOptionalTLVList()) {
 			if (lldptlv.getType() == 127 && lldptlv.getLength() == 12
@@ -1484,19 +1549,21 @@ IFloodlightModule, IInfoProvider {
 	//Ham discover tren filter port
 	protected void discoverOnFilterPorts() {
 		MacAddress rmac = MacAddress.of(LinkDiscoveryManager.randomMac());
+		//Gan mac random hien tai vao lmac
+		lmac = rmac;
 		//log.info("Sending LLDP packets out of all the filter ports and random MAC {}",rmac.toString());
 		// Send standard LLDPs
-		log.info("Block all unkown LLDP packets on all available switches");
+		//log.info("Block all unknown LLDP packets on all available switches");
 		log.info("Allow only LLDP packets with desination MAC of {} to be fowarded back to controller",rmac);
 		for (DatapathId sw : switchService.getAllSwitchDpids()) {
 			IOFSwitch iofSwitch = switchService.getSwitch(sw);
 			if (iofSwitch == null) continue;
 			if (!iofSwitch.isActive()) continue; /* can't do anything if the switch is SLAVE */
-			this.writeBlock(iofSwitch);	
+			//this.writeBlock(iofSwitch);	
 			this.writeFlowMod(iofSwitch, rmac);
 		}
 		System.out.println("Eligible Port Table: ");
-		List<String> portTable = Controller.getValue();
+		List<String> portTable = LinkDiscoveryManager.getValue();
 		System.out.println(portTable);
 		for (String obj : portTable) {
 			char cId = obj.charAt(0); 
@@ -2256,7 +2323,7 @@ IFloodlightModule, IInfoProvider {
 		debugCounterService = context.getServiceImpl(IDebugCounterService.class);
 		shutdownService = context.getServiceImpl(IShutdownService.class);
 		//Thread
-		messageListeners = new ConcurrentHashMap<OFType, ListenerDispatcher<OFType, IOFMessageListener>>();
+		//messageListeners = new ConcurrentHashMap<OFType, ListenerDispatcher<OFType, IOFMessageListener>>();
 		
 		// read our config options
 		Map<String, String> configOptions = context.getConfigParams(this);
@@ -2314,7 +2381,7 @@ IFloodlightModule, IInfoProvider {
 	}
 
 	//Ham de lay gia tri tu Thread 
-		protected class EliPortFromController implements Runnable {
+		/*protected class EliPortFromController implements Runnable {
 
 			@Override
 			public void run() {
@@ -2322,7 +2389,7 @@ IFloodlightModule, IInfoProvider {
 				
 				//System.out.println();
 			}
-	}
+	}*/
 	
 	
 	@Override
@@ -2417,7 +2484,7 @@ IFloodlightModule, IInfoProvider {
 		floodlightProviderService.addOFMessageListener(OFType.PACKET_IN, this);
 		
 		// Khoi tao gia tri thread, sau khi khoi dong controll thi 5s sau thread moi chay, sau do 16s se chay 1 lan
-		eliPortFromController = threadPoolService.getScheduledExecutor().scheduleAtFixedRate(new EliPortFromController(), 5, 16, TimeUnit.SECONDS);
+		//eliPortFromController = threadPoolService.getScheduledExecutor().scheduleAtFixedRate(new EliPortFromController(), 5, 16, TimeUnit.SECONDS);
 		
 		floodlightProviderService.addOFMessageListener(OFType.PORT_STATUS, this);
 		// Register for switch updates
