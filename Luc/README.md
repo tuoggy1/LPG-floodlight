@@ -362,19 +362,19 @@ protected void handleMessage(IOFSwitchBackend sw, OFMessage m, FloodlightContext
 				MacAddress dstmac = eth.getDestinationMACAddress();
 				if (!dstmac.equals(LinkDiscoveryManager.getCurrentMac())) {
 					DateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-        	        	Date date = new Date();
-        	        	log.warn("Detect LLDP attack at switch {} on device with port {}",sw.getId().toString(),pi.getMatch().toString());
-        	        	String d = df.format(date).toString();
-        	        	String t = "[" + d + "]: " + "Detect LLDP attack at switch " + sw.getId().toString() + " on device with port " + pi.getMatch().toString();
-        	        	try {File file = new File("attack.log");
-        	        		FileWriter fw = new FileWriter(file,true);
-        	        		BufferedWriter br = new BufferedWriter(fw);
-        	        		br.write(t);
-        	        		br.newLine();
-        	        		br.close();
-        	        		fw.close();
-        	        		}
-        	        	catch (IOException e) {}
+        	        		Date date = new Date();
+        	        		log.warn("Detect LLDP attack at switch {} on device with port {}",sw.getId().toString(),pi.getMatch().toString());
+        	        		String d = df.format(date).toString();
+        	        		String t = "[" + d + "]: " + "Detect LLDP attack at switch " + sw.getId().toString() + " on device with port " + pi.getMatch().toString();
+        	        		try {
+						File file = new File("attack.log");
+        	        			FileWriter fw = new FileWriter(file,true);
+        	        			BufferedWriter br = new BufferedWriter(fw);
+        	        			br.write(t);
+        	        			br.newLine();
+        	        			br.close();
+        	        			fw.close();
+        	        		} catch (IOException e) {}
 				}
 			}
 		}
