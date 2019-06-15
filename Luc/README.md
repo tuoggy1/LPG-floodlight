@@ -12,6 +12,9 @@ IFloodlightModule, IInfoProvider {
 	List<String> templist = new ArrayList<String>();
 	//Biến random Mac tại mỗi chu kì LLDP, cho phép truy cập từ các class khác
 	public static MacAddress lmac;
+	//Bảng lưu tần suất nhận LLDP từ switch (để loại bỏ các port down -> tối ưu quá trình gửi LLDP)
+	List<Integer> countList = new ArrayList<Integer>();
+	int counttemp = 0;
 ````
 * Khai báo các phương thức cần thiết
 ````java
@@ -307,17 +310,45 @@ OFPort remotePort = OFPort.of(portBB.getShort());
 		Iterator<Map.Entry<String,List<String>>> iterator = eliPortTable.entrySet().iterator();
 		while (iterator.hasNext())
 		{
-			//System.out.println(iterator.next());
 			String temp = iterator.next().toString();
+                        // Ham clear mang listtemp
+			if (listtemp.size() == a)
+	    		{
+	    			listtemp.clear();
+	    		}
 			listtemp.add(temp);	    					
 			for (String elements : listtemp)
-				if (!listSwPort.contains(elements))
-				{
-					listSwPort.add(elements);
-				}	    					
+	    		{
+	    			boolean check = listSwPort.contains(elements);
+	    			if (check == false)
+	    			{
+	    				listSwPort.add(elements);
+	    				int positionnew = listSwPort.indexOf(elements);
+	    				countList.add(positionnew,b);
+	    	    			counttemp = countList.size();
+	    			}
+	    			else	
+	    			{
+	    				int position = listSwPort.indexOf(elements);
+		    			counttemp = countList.size();
+		    			for (int i=0; i<counttemp; i++)
+		    			{
+		    				int j = countList.get(i);
+		    				j=j-1;
+		    				countList.set(i,j);
+		    			}
+		    			countList.set(position,b);
+		    			// Ham xoa phan tu LLDP khong xuat hien sau 50 lan
+		    			int index = -1;
+		    			while ((index = countList.indexOf(0)) >= 0)
+		    			{
+				    		System.out.println("Deleted element: "+countList.get(index));
+				    		countList.remove(index);
+				    		listSwPort.remove(index);
+				    	}	    				
+	    			}   						
+	    		}   					
 		}
-		
-		
 		
 		// Verify this LLDP packet matches what we're looking for
 		for (LLDPTLV lldptlv : lldp.getOptionalTLVList()) {
