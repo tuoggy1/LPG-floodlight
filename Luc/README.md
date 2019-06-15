@@ -297,6 +297,8 @@ OFPort remotePort = OFPort.of(portBB.getShort());
 		long timestamp = 0;
 		
 		//code add them
+		int a = 100;  // Bien temp clear mang listtemp (chong tran` mang)
+		int b = 50;   // Bien temp dem tan suat xuat hien moi goi LLDP
 		LLDPTLV chId = lldp.getChassisId();
 		LLDPTLV portId = lldp.getPortId();
 		String ch = chId.toString();
