@@ -1,12 +1,19 @@
 package net.floodlightcontroller.core.internal;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -507,7 +514,20 @@ IHAListener, IFloodlightModule, IOFSwitchService, IStoreListener<DatapathId> {
         		if (eth.getPayload() instanceof LLDP) {
         	        MacAddress dstmac = eth.getDestinationMACAddress();
         	        if (!dstmac.equals(LinkDiscoveryManager.getCurrentMac())) {
-        	        	log.info("Detect LLDP attack at switch {} on device with port {}",sw.getId().toString(),pi.getMatch().toString());
+        	        	DateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+        	        	Date date = new Date();
+        	        	log.warn("Detect LLDP attack at switch {} on device with port {}",sw.getId().toString(),pi.getMatch().toString());
+        	        	String d = df.format(date).toString();
+        	        	String t = "[" + d + "]: " + "Detect LLDP attack at switch " + sw.getId().toString() + " on device with port " + pi.getMatch().toString();
+        	        	try {File file = new File("attack.log");
+        	        		FileWriter fw = new FileWriter(file,true);
+        	        		BufferedWriter br = new BufferedWriter(fw);
+        	        		br.write(t);
+        	        		br.newLine();
+        	        		br.close();
+        	        		fw.close();
+        	        		}
+        	        	catch (IOException e) {}	
         	        }
         	    }
         	}
