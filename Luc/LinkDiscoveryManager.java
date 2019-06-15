@@ -154,32 +154,31 @@ IFloodlightModule, IInfoProvider {
 	protected IShutdownService shutdownService;
 
 	//FlowModClass elements
-	//protected U64 cookie;
 	public static int FLOWMOD_DEFAULT_IDLE_TIMEOUT = 15; 	
 	public static int FLOWMOD_DEFAULT_HARD_TIMEOUT = 15; 	
 	public static int FLOWMOD_DEFAULT_PRIORITY = 1;
-	//public static int FLOWMOD_SAMPLE_APP_ID = 1024;		// APP_ID
 	
 	// Role
 	protected HARole role;
 
-	//mac
+	//Current random mac
 	public static MacAddress lmac;
 	public static MacAddress getCurrentMac() {
 		return lmac;
 	}
 	//Bang luu eliPort
 	protected static HashMap<String,List<String>> eliPortTable = new HashMap();
-    static List<String> listSwPort = new ArrayList<String>();
-    List<String> templist = new ArrayList<String>();
-    //Phuong thuc lay list eli port
+    	static List<String> listSwPort = new ArrayList<String>();
+    	List<String> templist = new ArrayList<String>();
+    	//Phuong thuc lay list eli port
 	public static List<String> getValue()
-    {
-    	return listSwPort;
-    }
+    	{
+    		return listSwPort;
+    	}
 	//Bảng lưu tần suất nhận LLDP từ switch (để loại bỏ các port down -> tối ưu quá trình gửi LLDP)
 	List<Integer> countList = new ArrayList<Integer>();
 	int counttemp = 0;
+	
 	// LLDP and BDDP fields
 	private static final byte[] LLDP_STANDARD_DST_MAC_STRING =
 			MacAddress.of("01:80:c2:00:00:0e").getBytes();
@@ -302,7 +301,7 @@ IFloodlightModule, IInfoProvider {
 
 	private final String PACKAGE = LinkDiscoveryManager.class.getPackage().getName();
 	
-	//Add flow to switch
+	//Add flow to switch to allow only LLDP packets with known destination MAC Address
 	public void writeFlowMod( IOFSwitch sw, MacAddress mac )
 	{
 		// generate a Match Filter
@@ -333,9 +332,9 @@ IFloodlightModule, IInfoProvider {
 		// finally write it out to switch
 		sw.write( fmb.build() );
 		log.trace("1 flow added to switch {}",sw.getId().toString());
-		//sw.flush();
-		
 	}
+	
+	//Write flow to block all LLDP Packets as default (lower priority than the allow one)
 	public void writeBlock( IOFSwitch sw )
 	{
 		// generate a Match Filter
@@ -345,11 +344,6 @@ IFloodlightModule, IInfoProvider {
 		// generate an action list
 		List<OFAction> al = new ArrayList<OFAction>();
 
-		// generate a port and table id instance
-		//OFAction action = sw.getOFFactory().actions().buildOutput().
-						//	 build();
-		//al.add( action );
-		
 		// generate and start to build an OFFlowMod Message
 		OFFlowMod.Builder fmb = sw.getOFFactory().buildFlowAdd();
 		//fmb.setCookie( cookie )
@@ -364,23 +358,22 @@ IFloodlightModule, IInfoProvider {
 		// finally write it out to switch
 		sw.write( fmb.build() );
 		log.trace("Block unknown LLDP packets on switch {}",sw.getId().toString());
-		//sw.flush();
-		
 	}
+	
 	//Random mac function
 	public static byte[] randomMac() {
 		Random rand = new Random();
 		byte[] macAddr = new byte[6];
-	    rand.nextBytes(macAddr);
-	    macAddr[0] = (byte)(macAddr[0] & (byte)254);
-	    StringBuilder sb = new StringBuilder(18);
-	    for(byte b : macAddr){
-	        if(sb.length() > 0)
-	            sb.append(":");
-	        sb.append(String.format("%02x", b));
-	    }
-	    String rmac = sb.toString();
-	    return MacAddress.of(rmac).getBytes();
+	    	rand.nextBytes(macAddr);
+	    	macAddr[0] = (byte)(macAddr[0] & (byte)254);
+	    	StringBuilder sb = new StringBuilder(18);
+	    	for(byte b : macAddr){
+	        	if(sb.length() > 0)
+	            		sb.append(":");
+	        	sb.append(String.format("%02x", b));
+	    	}
+	    	String rmac = sb.toString();
+	    	return MacAddress.of(rmac).getBytes();
 	}
 
 	//*********************
@@ -519,7 +512,9 @@ IFloodlightModule, IInfoProvider {
 				log.debug("{}", pob.build());
 				return pob.build();
 	}
-
+	
+	
+		// Use new method to generate LLDP Message
 		public OFPacketOut generateLLDPMessageTilak(IOFSwitch iofSwitch, OFPort port, MacAddress mac, 
 				boolean isStandard, boolean isReverse) {
 
@@ -886,6 +881,7 @@ IFloodlightModule, IInfoProvider {
 		return false;
 	}
 
+	//Modify code involves filter Ports to send LLDP to
 	private Command handleLldp(LLDP lldp, DatapathId sw, OFPort inPort,
 			boolean isStandard, FloodlightContext cntx) {
 		// If LLDP is suppressed on this port, ignore received packet as well
@@ -1217,6 +1213,7 @@ IFloodlightModule, IInfoProvider {
 				portNumber));
 	}
 
+	//Modify this to use new method
 	protected void discoverLinks() {
 
 		// timeout known links.
@@ -1499,6 +1496,8 @@ IFloodlightModule, IInfoProvider {
 		counterPacketOut.increment();
 		return iofSwitch.write(generateLLDPMessage(iofSwitch, port, isStandard, isReverse));
 	}
+	
+	//Create new method for sending Discovery message
 	public boolean sendDiscoveryMessageTilak(DatapathId sw, OFPort port, MacAddress mac,
 			boolean isStandard, boolean isReverse) {
 
@@ -1546,14 +1545,11 @@ IFloodlightModule, IInfoProvider {
 		}
 	}
 
-	//Ham discover tren filter port
+	//Create new method to discover on filter ports 
 	protected void discoverOnFilterPorts() {
 		MacAddress rmac = MacAddress.of(LinkDiscoveryManager.randomMac());
 		//Gan mac random hien tai vao lmac
 		lmac = rmac;
-		//log.info("Sending LLDP packets out of all the filter ports and random MAC {}",rmac.toString());
-		// Send standard LLDPs
-		//log.info("Block all unknown LLDP packets on all available switches");
 		log.info("Allow only LLDP packets with desination MAC of {} to be fowarded back to controller",rmac);
 		for (DatapathId sw : switchService.getAllSwitchDpids()) {
 			IOFSwitch iofSwitch = switchService.getSwitch(sw);
